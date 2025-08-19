@@ -102,11 +102,11 @@ public class FabricRunConfiguration implements
             return false;
         }
 
-        Optional<Expression> tagFilter() {
+        public Optional<Expression> tagFilter() {
             return configurationParameters.get(FILTER_TAGS_PROPERTY_NAME, TagExpressionParser::parse);
         }
 
-        Optional<Pattern> nameFilter() {
+        public Optional<Pattern> nameFilter() {
             return configurationParameters.get(FILTER_NAME_PROPERTY_NAME, Pattern::compile);
         }
 
@@ -155,7 +155,7 @@ public class FabricRunConfiguration implements
                     .orElse(false);
         }
 
-        Node.ExecutionMode getExecutionModeFeature() {
+        public Node.ExecutionMode getExecutionModeFeature() {
             return configurationParameters.get(EXECUTION_MODE_FEATURE_PROPERTY_NAME,
                             value -> Node.ExecutionMode.valueOf(value.toUpperCase(Locale.US)))
                     .orElse(Node.ExecutionMode.CONCURRENT);

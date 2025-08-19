@@ -1,12 +1,15 @@
 package net.cucumbergametest.engine;
 
 import io.cucumber.core.eventbus.EventBus;
+import io.cucumber.core.gherkin.Pickle;
 import io.cucumber.core.logging.Logger;
 import io.cucumber.core.logging.LoggerFactory;
 import io.cucumber.core.plugin.PluginFactory;
 import io.cucumber.core.plugin.Plugins;
 import io.cucumber.core.runtime.*;
+import io.cucumber.junit.platform.engine.CucumberConfiguration;
 import io.cucumber.junit.platform.engine.CucumberEngineExecutionContext;
+import io.cucumber.junit.platform.engine.TestCaseResultObserver;
 import net.cucumbergametest.config.FabricRunConfiguration;
 import org.junit.platform.engine.support.hierarchical.EngineExecutionContext;
 
@@ -16,6 +19,7 @@ import java.time.Clock;
 import java.util.function.Supplier;
 
 import static io.cucumber.core.runtime.SynchronizedEventBus.synchronize;
+import static io.cucumber.junit.platform.engine.TestCaseResultObserver.observe;
 
 public class FabricEngineExecutionContext implements EngineExecutionContext {
     private static final Logger log = LoggerFactory.getLogger(CucumberEngineExecutionContext.class);
@@ -71,5 +75,20 @@ public class FabricEngineExecutionContext implements EngineExecutionContext {
     public void finishTestRun() {
         log.debug(() -> "Finishing Fabric test run");
         context.finishTestRun();
+    }
+
+    public FabricRunConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    public void runTestCase(Pickle pickle) {
+        context.runTestCase((runner) -> {
+            try (io.cucumber.junit.platform.engine.TestCaseResultObserver observer = observe(runner.getBus())) {
+                log.debug(() -> "Executing test case " + pickle.getName());
+                runner.runPickle(pickle);
+                log.debug(() -> "Finished test case " + pickle.getName());
+                observer.assertTestCasePassed();
+            }
+        });
     }
 }
