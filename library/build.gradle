@@ -1,0 +1,53 @@
+plugins {
+    id 'java-library'
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.spongepowered.org/maven/' }
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    // Minecraft + mappings
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    // Fabric Loader + Fabric API, needed by your startServer()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // Cucumber / JUnit platform
+    implementation(platform("org.junit:junit-bom:5.13.4"))
+    implementation(platform("io.cucumber:cucumber-bom:7.27.0"))
+    implementation(platform("org.assertj:assertj-bom:3.27.3"))
+
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.19.2"
+    implementation("io.cucumber:cucumber-java")
+    implementation("io.cucumber:cucumber-junit-platform-engine")
+    implementation("org.junit.platform:junit-platform-suite")
+    implementation("org.assertj:assertj-core")
+    implementation("io.cucumber:cucumber-core")
+    implementation("io.cucumber:cucumber-plugin")
+    implementation("io.cucumber:gherkin")
+    implementation("io.cucumber:messages")
+    implementation("org.junit.platform:junit-platform-launcher")
+    implementation("org.junit.platform:junit-platform-console")
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    withSourcesJar()
+}
+configurations {
+    dev {
+        canBeResolved = false
+        canBeConsumed = true
+    }
+}
+
+artifacts {
+    dev jar
+}

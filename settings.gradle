@@ -1,0 +1,16 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'cucumber-gametest-library'
+include 'library', 'testmod'
+
+project(':library').projectDir     = file('library')
+project(':testmod').projectDir  = file('testmod')

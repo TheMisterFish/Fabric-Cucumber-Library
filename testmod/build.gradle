@@ -1,0 +1,39 @@
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.spongepowered.org/maven/' }
+    maven { url = 'https://maven.fabricmc.net/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    testImplementation project(path: ':library', configuration: 'dev')
+    implementation project(path: ':library', configuration: 'dev')
+
+    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation(platform("io.cucumber:cucumber-bom:7.27.0"))
+    testImplementation(platform("org.assertj:assertj-bom:3.27.3"))
+
+    testImplementation("io.cucumber:cucumber-java")
+    testImplementation("io.cucumber:cucumber-junit-platform-engine")
+    testImplementation("org.junit.platform:junit-platform-suite")
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+test {
+    useJUnitPlatform {}
+
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
