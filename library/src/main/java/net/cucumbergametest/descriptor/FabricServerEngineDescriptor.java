@@ -1,22 +1,27 @@
 package net.cucumbergametest.descriptor;
+
+import net.cucumbergametest.config.FabricRunConfiguration;
 import net.cucumbergametest.engine.FabricEngineExecutionContext;
-import net.cucumbergametest.engine.FabricServerTestEngine;
 import org.junit.platform.engine.TestSource;
 import org.junit.platform.engine.UniqueId;
 import org.junit.platform.engine.support.descriptor.EngineDescriptor;
 import org.junit.platform.engine.support.hierarchical.Node;
 
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
 public class FabricServerEngineDescriptor extends EngineDescriptor implements Node<FabricEngineExecutionContext> {
-    static final String ENGINE_ID = FabricServerTestEngine.ID;
     private final TestSource source;
+    private final FabricRunConfiguration configuration;
 
-    public FabricServerEngineDescriptor(UniqueId uniqueId, TestSource source) {
+    public FabricServerEngineDescriptor(UniqueId uniqueId, FabricRunConfiguration configuration, TestSource source) {
         super(uniqueId, "FabricServer");
         this.source = source;
+        this.configuration = configuration;
+    }
+
+    public FabricRunConfiguration getConfiguration() {
+        return configuration;
     }
 
     @Override
@@ -40,7 +45,6 @@ public class FabricServerEngineDescriptor extends EngineDescriptor implements No
 //    }
 
 
-
     @Override
     public void cleanUp(FabricEngineExecutionContext context) {
         ifChildren(context, FabricEngineExecutionContext::finishTestRun);
@@ -61,10 +65,5 @@ public class FabricServerEngineDescriptor extends EngineDescriptor implements No
             action.accept(context);
         }
         return context;
-    }
-
-    public Object getConfiguration() {
-        // no0op
-        return new Object();
     }
 }
