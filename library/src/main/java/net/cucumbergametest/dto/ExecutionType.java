@@ -1,0 +1,10 @@
+package net.cucumbergametest.dto;
+
+public enum ExecutionType {
+    DYNAMIC_TEST_REGISTERED,
+    EXECUTION_SKIPPED,
+    EXECUTION_STARTED,
+    EXECUTION_FINISHED,
+    REPORTING_ENTRY_PUBLISHED,
+    FILE_ENTRY_PUBLISHED
+}
