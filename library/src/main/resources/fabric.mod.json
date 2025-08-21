@@ -1,8 +1,8 @@
 {
 	"schemaVersion": 1,
-	"id": "cucumber-gametest-library-mod",
+	"id": "cucumber-runner",
 	"version": "1.0.0",
-	"name": "cucumber-gametest-library-mod",
+	"name": "cucumber-runner",
 	"description": "A tiny mod that allows the cucumber-gametest-library to work",
 	"authors": [
 		"TheMisterFish"
@@ -14,7 +14,7 @@
 	"license": "Apache-2.0",
 	"environment": "*",
 	"mixins": [
-		"cucumber-gametest-library.mixins.json"
+		"cucumber-runner.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.16.14",
@@ -24,7 +24,7 @@
 	},
 	"entrypoints": {
 		"main": [
-			"net.cucumbergametest.Mod"
+			"net.cucumberfabric.RunnerMod"
 		]
 	},
 	"custom": {

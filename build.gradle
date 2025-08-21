@@ -5,7 +5,7 @@ plugins {
 }
 
 allprojects {
-    group = 'net.cucumbergametest'
+    group = 'net.cucumberfabric'
     version = '1.0.0'
 
     repositories {
@@ -37,56 +37,3 @@ publishing {
         }
     }
 }
-//
-//tasks.register('runCucumber', JavaExec) {
-//    group = 'verification'
-//    description = 'Launch Fabric + Cucumber on YOUR mod + YOUR test suite'
-//
-//    dependsOn ':library:classes', 'classes', 'testClasses'
-//
-//    // Put the library and harness on the classpath, then the consumer’s code
-//    classpath = files(
-//            project(':library').sourceSets.main.output,
-//            sourceSets.main.output,
-//            sourceSets.test.output
-//    ) + configurations.runtimeClasspath
-//
-//    mainClass.set('org.junit.platform.console.ConsoleLauncher')
-//    args = [
-//            'execute',
-//            '--select-directory', file('src/test/resources/features').absolutePath,
-//            '--details', 'tree',
-//            '--fail-if-no-tests'
-//    ]
-//
-//    systemProperty 'fabric.development', 'true'
-//    systemProperty 'fabric.env', 'server'
-//}
-//
-//tasks.register('verifyLibrary', JavaExec) {
-//    group = 'verification'
-//    description = 'Runs internal Cucumber tests for the Fabric Cucumber library'
-//
-//    // ensure all code + resources are compiled
-//    dependsOn ':library:classes', ':testmod:classes', ':test:classes'
-//    // reuse the test module’s runtimeClasspath
-//    classpath = files(
-//            project(':testmod').sourceSets.main.output.classesDirs,
-//            project(':testmod').sourceSets.main.output.resourcesDir,
-//            project(':library').sourceSets.main.output.classesDirs,
-//            project(':library').sourceSets.main.output.resourcesDir
-//    ) +
-//            project(':library').sourceSets.main.runtimeClasspath
-//
-//    mainClass.set('org.junit.platform.console.ConsoleLauncher')
-//    args = [
-//            'execute',
-//            '--select-package', 'net.cucumbergametest.runners',
-//            '--select-directory', project(':testmod').file('src/main/resources/features').absolutePath,
-//            '--details', 'tree',
-//            '--fail-if-no-tests'
-//    ]
-//
-//}
-
-// Publish each subproject’s Java component if you need it

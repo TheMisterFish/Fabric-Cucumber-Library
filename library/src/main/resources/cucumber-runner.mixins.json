@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "package": "net.cucumberfabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "DedicatedServerSettingsMixin",
+    "EulaMixin",
+    "GameProfileCacheMixin",
+    "LevelStorageSourceMixin",
+    "ServerLevelMixin",
+    "StoredUserListMixin"
+  ],
+  "server": [
+  ],
+  "injectors": {
+    "defaultRequire": 1,
+    "maxShiftBy": 2
+	}
+}

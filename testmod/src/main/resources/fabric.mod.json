@@ -1,9 +1,9 @@
 {
 	"schemaVersion": 1,
-	"id": "cucumber-gametest-library-examplemod",
+	"id": "cucumber-fabric-example-mod",
 	"version": "0.0.0",
-	"name": "cucumber-gametest-library-examplemod",
-	"description": "Cucumber gametest examplemod",
+	"name": "cucumber-fabric-example-mod",
+	"description": "Cucumber fabric example mod",
 	"authors": [
 		"TheMisterFish"
 	],
@@ -11,7 +11,7 @@
 	"environment": "*",
 	"entrypoints": {
 		"main" : [
-			"net.cucumbergametest.test.CucumberGametestExampleMod"
+			"net.cucumberfabric.examplemod.CucumberFabricExampleMod"
 		]
 	},
 	"depends": {

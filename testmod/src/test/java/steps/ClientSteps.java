@@ -2,7 +2,7 @@ package steps;
 
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
-import net.cucumbergametest.annotation.TestHelper;
+import net.cucumberfabric.annotation.TestHelper;
 import net.minecraft.gametest.framework.GameTestHelper;
 
 public class ClientSteps {
