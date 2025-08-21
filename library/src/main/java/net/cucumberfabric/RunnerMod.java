@@ -27,18 +27,19 @@ import static org.junit.platform.engine.discovery.DiscoverySelectors.selectUniqu
 public class RunnerMod implements ModInitializer {
     private final ClientSocketHandler clientSocketHandler = new ClientSocketHandler();
     private final Logger LOGGER = LoggerFactory.getLogger(RunnerMod.class);
+    private MinecraftServer minecraftServer;
 
     @Override
     public void onInitialize() {
         if (FabricLoader.getInstance().getEnvironmentType() == EnvType.SERVER) {
             ServerTickEvents.START_SERVER_TICK.register(this::onServerTick);
-
         } else {
             ClientTickEvents.START_CLIENT_TICK.register(this::onClientTick);
         }
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
+                minecraftServer = server;
                 clientSocketHandler.connect();
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
@@ -97,6 +98,8 @@ public class RunnerMod implements ModInitializer {
         launcher.registerTestExecutionListeners(cucumberTestListener);
 
         launcher.execute(request);
+
+        minecraftServer.halt(true);
 
         clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.DONE));
     }
