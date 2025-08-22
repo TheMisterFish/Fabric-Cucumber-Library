@@ -4,6 +4,7 @@ import net.cucumberfabric.dto.types.MessageType;
 import net.cucumberfabric.dto.MessageWrapperDTO;
 import net.cucumberfabric.dto.TestRequestPayloadDTO;
 import net.cucumberfabric.listener.CucumberTestListener;
+import net.cucumberfabric.options.Constants;
 import net.cucumberfabric.socket.ClientSocketHandler;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.ModInitializer;
@@ -99,7 +100,8 @@ public class RunnerMod implements ModInitializer {
 
         launcher.execute(request);
 
-        minecraftServer.halt(true);
+        boolean saveOnStop = Boolean.parseBoolean(testRequestPayloadDTO.getStringParams().getOrDefault(Constants.SAVE_ON_STOP_PROPERTY_NAME, "true"));
+        minecraftServer.halt(saveOnStop);
 
         clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.DONE));
     }

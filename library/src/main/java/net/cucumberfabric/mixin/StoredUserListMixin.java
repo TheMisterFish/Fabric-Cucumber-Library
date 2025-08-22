@@ -13,7 +13,7 @@ public class StoredUserListMixin {
     private static String forcedDir;
 
     static {
-        forcedDir = System.getProperty("custom.server.dir");
+        forcedDir = System.getProperty("cucumberfabric.server-dir");
     }
 
     @ModifyVariable(
@@ -23,7 +23,6 @@ public class StoredUserListMixin {
             argsOnly = true
     )
     private static File redirectPath(File value) {
-        forcedDir = System.getProperty("custom.server.dir");
         if (forcedDir != null && !forcedDir.isBlank()) {
             return Paths.get(forcedDir).resolve(value.getName()).toFile();
         }

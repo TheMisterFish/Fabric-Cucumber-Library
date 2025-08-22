@@ -13,7 +13,7 @@ public class EulaMixin {
     private final static String forcedDir;
 
     static {
-        forcedDir = System.getProperty("custom.server.eula.location");
+        forcedDir = System.getProperty("cucumberfabric.eula-location");
     }
 
     @ModifyVariable(

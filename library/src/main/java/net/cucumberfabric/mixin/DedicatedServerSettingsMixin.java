@@ -13,7 +13,7 @@ public class DedicatedServerSettingsMixin {
     private static String forcedDir;
 
     static {
-        forcedDir = System.getProperty("custom.server.dir");
+        forcedDir = System.getProperty("cucumberfabric.server-dir");
     }
 
     @ModifyVariable(
