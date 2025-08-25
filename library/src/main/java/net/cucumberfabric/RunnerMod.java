@@ -1,13 +1,16 @@
 package net.cucumberfabric;
 
-import net.cucumberfabric.dto.types.MessageType;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import net.cucumberfabric.dto.MessageWrapperDTO;
 import net.cucumberfabric.dto.TestRequestPayloadDTO;
+import net.cucumberfabric.dto.types.MessageType;
 import net.cucumberfabric.listener.CucumberTestListener;
-import net.cucumberfabric.options.Constants;
 import net.cucumberfabric.socket.ClientSocketHandler;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.api.EnvType;
-import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -22,51 +25,109 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
+import static net.minecraft.server.network.ServerConnectionListener.SERVER_EPOLL_EVENT_GROUP;
+import static net.minecraft.server.network.ServerConnectionListener.SERVER_EVENT_GROUP;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectUniqueId;
 
-public class RunnerMod implements ModInitializer {
+public class RunnerMod implements DedicatedServerModInitializer, ClientModInitializer {
     private final ClientSocketHandler clientSocketHandler = new ClientSocketHandler();
     private final Logger LOGGER = LoggerFactory.getLogger(RunnerMod.class);
     private MinecraftServer minecraftServer;
+    private Minecraft minecraft;
+    private TestRequestPayloadDTO testRequestPayloadDTO;
+    private EnvType currentEnvtype;
+    private int replyCounter = 0;
+    private boolean started;
+
 
     @Override
-    public void onInitialize() {
-        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.SERVER) {
-            ServerTickEvents.START_SERVER_TICK.register(this::onServerTick);
-        } else {
-            ClientTickEvents.START_CLIENT_TICK.register(this::onClientTick);
-        }
+    public void onInitializeServer() {
+        currentEnvtype = EnvType.SERVER;
+        ServerTickEvents.START_SERVER_TICK.register(this::onTick);
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
-                minecraftServer = server;
-                clientSocketHandler.connect();
+                this.minecraftServer = server;
+                this.clientSocketHandler.connect();
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
         });
+
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            if (clientSocketHandler.isConnected()) {
+                try {
+                    clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.SERVER_STOPPED));
+                    clientSocketHandler.close();
+
+                    closeNetty();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
     }
 
-    private void onClientTick(Minecraft minecraft) {
-        onServerTick();
+    @Override
+    public void onInitializeClient() {
+        currentEnvtype = EnvType.CLIENT;
+        ClientTickEvents.START_CLIENT_TICK.register(this::onTick);
+
+        ClientLifecycleEvents.CLIENT_STARTED.register(minecraft -> {
+            try {
+                this.minecraft = minecraft;
+                this.clientSocketHandler.connect();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        ClientLifecycleEvents.CLIENT_STOPPING.register(minecraft -> {
+            if (clientSocketHandler.isConnected()) {
+                try {
+                    clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.CLIENT_STOPPING));
+                    clientSocketHandler.close();
+
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
     }
 
-    private void onServerTick(MinecraftServer minecraftServer) {
-        onServerTick();
-    }
-
-    private void onServerTick() {
+    private void onTick(Object ignored) {
         try {
             clientSocketHandler.poll();
             if (clientSocketHandler.isConnected()) {
                 if (clientSocketHandler.hasMessages()) {
                     Object message = clientSocketHandler.getNextMessage();
 
-                    if (message instanceof TestRequestPayloadDTO testRequestPayloadDTO) {
+                    if (message instanceof TestRequestPayloadDTO payload) {
+                        this.testRequestPayloadDTO = payload;
+                    }
+                }
+
+                replyCounter++;
+                if (replyCounter > 20) {
+                    clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.WORKING));
+                    replyCounter = 0;
+                }
+
+                if (!started && currentEnvtype == EnvType.CLIENT) {
+                    if (minecraft.isGameLoadFinished() && minecraft.gui.getGuiTicks() > 80) {
+                        started = true;
                         startCucumberLauncher(testRequestPayloadDTO);
                     }
                 }
+                if (!started && currentEnvtype == EnvType.SERVER) {
+                    if (minecraftServer.isReady()) {
+                        started = true;
+                        startCucumberLauncher(testRequestPayloadDTO);
+                    }
+                }
+
             }
         } catch (Exception e) {
             try {
@@ -78,7 +139,7 @@ public class RunnerMod implements ModInitializer {
         }
     }
 
-    private void startCucumberLauncher(TestRequestPayloadDTO testRequestPayloadDTO) throws IOException {
+    private void startCucumberLauncher(TestRequestPayloadDTO testRequestPayloadDTO) throws IOException, InterruptedException {
         LauncherDiscoveryRequestBuilder requestBuilder = LauncherDiscoveryRequestBuilder.request();
 
         if (!testRequestPayloadDTO.getStringParams().isEmpty()) {
@@ -100,9 +161,26 @@ public class RunnerMod implements ModInitializer {
 
         launcher.execute(request);
 
-        boolean saveOnStop = Boolean.parseBoolean(testRequestPayloadDTO.getStringParams().getOrDefault(Constants.SAVE_ON_STOP_PROPERTY_NAME, "true"));
-        minecraftServer.halt(saveOnStop);
-
         clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.DONE));
+
+        if (minecraftServer != null) {
+            minecraftServer.close();
+        }
+        if (minecraft != null) {
+            minecraft.stop();
+        }
     }
+
+    private void closeNetty() {
+        try {
+            NioEventLoopGroup nioGroup = SERVER_EVENT_GROUP.get();
+            nioGroup.shutdownGracefully().sync();
+
+            EpollEventLoopGroup epollGroup = SERVER_EPOLL_EVENT_GROUP.get();
+            epollGroup.shutdownGracefully().sync();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

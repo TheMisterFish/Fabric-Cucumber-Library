@@ -1,4 +1,4 @@
-package net.cucumberfabric.mixin;
+package net.cucumberfabric.mixin.server;
 
 import net.minecraft.gametest.framework.GameTestTicker;
 import net.minecraft.server.level.ServerLevel;

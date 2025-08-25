@@ -1,15 +1,15 @@
-package net.cucumberfabric.mixin;
+package net.cucumberfabric.mixin.server;
 
-import net.minecraft.server.players.StoredUserList;
+import net.minecraft.server.dedicated.DedicatedServerSettings;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
-@Mixin(StoredUserList.class)
-public class StoredUserListMixin {
+@Mixin(DedicatedServerSettings.class)
+public class DedicatedServerSettingsMixin {
     private static String forcedDir;
 
     static {
@@ -17,15 +17,15 @@ public class StoredUserListMixin {
     }
 
     @ModifyVariable(
-            method = "<init>",
+            method = "<init>(Ljava/nio/file/Path;)V",
             at = @At("HEAD"),
             index = 1,
             argsOnly = true
     )
-    private static File redirectPath(File value) {
+    private static Path modifyConstructorPath(Path original) {
         if (forcedDir != null && !forcedDir.isBlank()) {
-            return Paths.get(forcedDir).resolve(value.getName()).toFile();
+            return Paths.get(forcedDir, "server.properties");
         }
-        return value;
+        return original;
     }
 }

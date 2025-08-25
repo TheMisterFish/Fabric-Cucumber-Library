@@ -1,4 +1,4 @@
-package net.cucumberfabric.mixin;
+package net.cucumberfabric.mixin.server;
 
 import net.minecraft.server.Eula;
 import org.spongepowered.asm.mixin.Mixin;

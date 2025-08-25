@@ -1,15 +1,15 @@
-package net.cucumberfabric.mixin;
+package net.cucumberfabric.mixin.server;
 
-import net.minecraft.server.players.GameProfileCache;
+import net.minecraft.world.level.storage.LevelStorageSource;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
-@Mixin(GameProfileCache.class)
-public class GameProfileCacheMixin {
+@Mixin(LevelStorageSource.class)
+public class LevelStorageSourceMixin {
     private static String forcedDir;
 
     static {
@@ -19,13 +19,13 @@ public class GameProfileCacheMixin {
     @ModifyVariable(
             method = "<init>",
             at = @At("HEAD"),
-            index = 2,
+            index = 1,
             argsOnly = true
     )
-    private static File redirectPath(File value) {
+    private static Path redirectPath(Path original) {
         if (forcedDir != null && !forcedDir.isBlank()) {
-            return Paths.get(forcedDir).resolve(value.getName()).toFile();
+            return Paths.get(forcedDir);
         }
-        return value;
+        return original;
     }
 }

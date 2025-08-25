@@ -21,7 +21,7 @@ public class ServerSocketHandler extends AbstractSocketHandler {
         serverSocketChannel.socket().bind(new InetSocketAddress(0));
 
         int port = serverSocketChannel.socket().getLocalPort();
-        System.setProperty("cucumber.socket.port", String.valueOf(port));
+        System.setProperty("cucumberfabric.socket.port", String.valueOf(port));
     }
 
     @Override

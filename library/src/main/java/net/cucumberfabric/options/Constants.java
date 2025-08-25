@@ -23,7 +23,7 @@ public final class Constants {
      * server and client artifacts.
      * <p>
      * Accepts a file-system path.
-     * Default: {@value #ROOT_DEFAULT_RUN_DIR}
+     * Default: {@value #ROOT_RUN_ROOT_RUN_DIR}
      * <br>
      * Note: This folder will be created if it doesn't exist.
      */
@@ -35,7 +35,7 @@ public final class Constants {
      * server and client artifacts.
      * <p>
      * Accepts a file-system path.
-     * Default: {@value #ROOT_DEFAULT_RUN_DIR}
+     * Default: {@value #ROOT_RUN_ROOT_RUN_DIR}
      * <br>
      * Note: This folder will be created if it doesn't exist.
      */
@@ -47,21 +47,24 @@ public final class Constants {
      * Property name to set the run directory.
      * <p>
      * Accepts a file-system path.
-     * Default: {@value #DEFAULT_RUN_DIR}
+     * Default: {@value #DEFAULT_SERVER_RUN_DIR}
      * <br>
-     * Note: This folder will be created (inside {@value #ROOT_DEFAULT_RUN_DIR}) if it doesn't exist.
+     * Note: This folder will be created (inside {@value #ROOT_RUN_ROOT_RUN_DIR}) if it doesn't exist.
      */
-    public static final String RUN_DIR_PROPERTY_NAME =
-            "cucumberfabric.run-dir";
+    public static final String RUN_SERVER_DIR_PROPERTY_NAME =
+            "cucumberfabric.server-run-dir";
 
     /**
-     * Property name to control whether the server state is saved on stop.
+     * Property name to set the run directory.
      * <p>
-     * Accepts "true" or "false".
-     * Default: {@value #DEFAULT_SAVE_ON_STOP}
+     * Accepts a file-system path.
+     * Default: {@value #DEFAULT_CLIENT_RUN_DIR}
+     * <br>
+     * Note: This folder will be created (inside {@value #ROOT_RUN_ROOT_RUN_DIR}) if it doesn't exist.
      */
-    public static final String SAVE_ON_STOP_PROPERTY_NAME =
-            "cucumberfabric.save-on-stop";
+    public static final String RUN_CLIENT_DIR_PROPERTY_NAME =
+            "cucumberfabric.client-run-dir";
+
 
     /**
      * Property name to control deletion of data when the tests finish.
@@ -82,6 +85,14 @@ public final class Constants {
             "cucumberfabric.engine-to-use";
 
 
+    /**
+     * Property name to set how long it will take before the FabricEngine will time-out (in seconds).
+     * <p>
+     * Accepts a int value representing seconds
+     * Default: {@value #DEFAULT_ENGINE_TIMEOUT}
+     */
+    public static final String ENGINE_TIMEOUT_PROPERTY_NAME =
+            "cucumberfabric.engine-time-out";
     // DEFAULT VALUES
 
     /**
@@ -89,7 +100,7 @@ public final class Constants {
      * <p>
      * System property: {@code ROOT_RUN_DIR_PROPERTY_NAME}, default "run_cucumber".
      */
-    public static final String ROOT_DEFAULT_RUN_DIR = "run_cucumber";
+    public static final String ROOT_RUN_ROOT_RUN_DIR = "run_cucumber";
 
     /**
      * EnvType for the type of test run (server or client)
@@ -103,22 +114,29 @@ public final class Constants {
      * <p>
      * System property: {@code RUN_DIR_PROPERTY_NAME}, default "server".
      */
-    public static final String DEFAULT_RUN_DIR = "server";
+    public static final String DEFAULT_SERVER_RUN_DIR = "server";
 
     /**
-     * By default, server state will be persisted when stopped.
+     * Default subdirectory under root for server artifacts.
+     * <p>
+     * System property: {@code RUN_DIR_PROPERTY_NAME}, default "server".
      */
-    public static final boolean DEFAULT_SAVE_ON_STOP = true;
+    public static final String DEFAULT_CLIENT_RUN_DIR = "client";
 
     /**
      * By default, server artifacts are not deleted on finish.
      */
-    public static final boolean DEFAULT_DELETE_ON_FINISH = false;
+    public static final String DEFAULT_DELETE_ON_FINISH = "false";
 
     /**
      * Default Cucumber engine ID to use in your custom runner.
      */
     public static final String DEFAULT_ENGINE_TO_USE = "cucumber";
+
+    /**
+     * Default time-out for FabricEngine set to 10 seconds
+     */
+    public static final String DEFAULT_ENGINE_TIMEOUT = "40";
 
 
     // GENERIC System.getProperty–BASED getters
@@ -161,21 +179,21 @@ public final class Constants {
     // CONVENIENCE METHODS (System properties)
 
     /**
-     * @return root run directory (system property or {@value #ROOT_DEFAULT_RUN_DIR})
+     * @return root run directory (system property or {@value #ROOT_RUN_ROOT_RUN_DIR})
      */
     public static String getRootRunDir() {
-        return getOrDefault(ROOT_RUN_DIR_PROPERTY_NAME, ROOT_DEFAULT_RUN_DIR);
+        return getOrDefault(ROOT_RUN_DIR_PROPERTY_NAME, ROOT_RUN_ROOT_RUN_DIR);
     }
 
     /**
-     * @return server run directory name (system property or {@value #DEFAULT_ENVTYPE})
+     * @return fabric run envType as string (system property or {@value #DEFAULT_ENVTYPE})
      */
     public static String getEnvTypeString() {
         return getOrDefault(ENVTYPE_PROPERTY_NAME, DEFAULT_ENVTYPE);
     }
 
     /**
-     * @return server run directory name (system property or {@value #DEFAULT_RUN_DIR})
+     * @return fabric run envType (system property or {@value #DEFAULT_ENVTYPE})
      */
     public static EnvType getEnvType() {
         return EnvType.valueOf(getOrDefault(ENVTYPE_PROPERTY_NAME, DEFAULT_ENVTYPE).toUpperCase());
@@ -184,32 +202,42 @@ public final class Constants {
     /**
      * @return full server run path: {root} + {server}
      */
-    public static Path getRunPath() {
+    public static Path getServerRunPath() {
         return Paths.get(
                 getRootRunDir(),
-                getOrDefault(RUN_DIR_PROPERTY_NAME, DEFAULT_RUN_DIR)
+                getOrDefault(RUN_SERVER_DIR_PROPERTY_NAME, DEFAULT_SERVER_RUN_DIR)
         );
     }
 
     /**
-     * @return server run directory name (system property or {@value #DEFAULT_RUN_DIR})
+     * @return server run directory name (system property or {@value #DEFAULT_SERVER_RUN_DIR})
      */
-    public static String getRunDir() {
-        return getOrDefault(RUN_DIR_PROPERTY_NAME, DEFAULT_RUN_DIR);
+    public static String getServerRunDir() {
+        return getOrDefault(RUN_SERVER_DIR_PROPERTY_NAME, DEFAULT_SERVER_RUN_DIR);
     }
 
     /**
-     * @return whether to save on stop (system property or {@value #DEFAULT_SAVE_ON_STOP})
+     * @return full client run path: {root} + {client}
      */
-    public static boolean isSaveOnStop() {
-        return getOrDefault(SAVE_ON_STOP_PROPERTY_NAME, DEFAULT_SAVE_ON_STOP);
+    public static Path getClientRunPath() {
+        return Paths.get(
+                getRootRunDir(),
+                getOrDefault(RUN_CLIENT_DIR_PROPERTY_NAME, DEFAULT_CLIENT_RUN_DIR)
+        );
+    }
+
+    /**
+     * @return client run directory name (system property or {@value #DEFAULT_CLIENT_RUN_DIR})
+     */
+    public static String getClientRunDir() {
+        return getOrDefault(RUN_CLIENT_DIR_PROPERTY_NAME, DEFAULT_CLIENT_RUN_DIR);
     }
 
     /**
      * @return whether to delete on finish (system property or {@value #DEFAULT_DELETE_ON_FINISH})
      */
     public static boolean isDeleteOnFinish() {
-        return getOrDefault(DELETE_ON_FINISH_PROPERTY_NAME, DEFAULT_DELETE_ON_FINISH);
+        return Boolean.parseBoolean(getOrDefault(DELETE_ON_FINISH_PROPERTY_NAME, DEFAULT_DELETE_ON_FINISH));
     }
 
     /**
@@ -217,6 +245,13 @@ public final class Constants {
      */
     public static String getEngineToUse() {
         return getOrDefault(ENGINE_TO_USE_PROPERTY_NAME, DEFAULT_ENGINE_TO_USE);
+    }
+
+    /**
+     * @return timeout in seconds (system property or {@value #DEFAULT_ENGINE_TIMEOUT})
+     */
+    public static String getEngineTimeout() {
+        return getOrDefault(ENGINE_TIMEOUT_PROPERTY_NAME, DEFAULT_ENGINE_TIMEOUT);
     }
 
 
@@ -228,34 +263,34 @@ public final class Constants {
     public static String getRootRunDir(ConfigurationParameters params) {
         return getOrDefault(params,
                 ROOT_RUN_DIR_PROPERTY_NAME,
-                ROOT_DEFAULT_RUN_DIR);
+                ROOT_RUN_ROOT_RUN_DIR);
     }
 
     /**
-     * @see #getRunDir()
+     * @see #getServerRunDir()
      */
-    public static String getRunDir(ConfigurationParameters params) {
+    public static String getServerRunDir(ConfigurationParameters params) {
         return getOrDefault(params,
-                RUN_DIR_PROPERTY_NAME,
-                DEFAULT_RUN_DIR);
+                RUN_SERVER_DIR_PROPERTY_NAME,
+                DEFAULT_SERVER_RUN_DIR);
     }
 
     /**
-     * @see #isSaveOnStop()
+     * @see #getClientRunDir()
      */
-    public static boolean isSaveOnStop(ConfigurationParameters params) {
+    public static String getClientRunDir(ConfigurationParameters params) {
         return getOrDefault(params,
-                SAVE_ON_STOP_PROPERTY_NAME,
-                DEFAULT_SAVE_ON_STOP);
+                RUN_CLIENT_DIR_PROPERTY_NAME,
+                DEFAULT_CLIENT_RUN_DIR);
     }
 
     /**
      * @see #isDeleteOnFinish()
      */
     public static boolean isDeleteOnFinish(ConfigurationParameters params) {
-        return getOrDefault(params,
+        return Boolean.parseBoolean(getOrDefault(params,
                 DELETE_ON_FINISH_PROPERTY_NAME,
-                DEFAULT_DELETE_ON_FINISH);
+                DEFAULT_DELETE_ON_FINISH));
     }
 
     /**
@@ -268,6 +303,24 @@ public final class Constants {
     }
 
     /**
+     * @see #getEnvType()
+     */
+    public static EnvType getEnvType(ConfigurationParameters params) {
+        return EnvType.valueOf(getOrDefault(params,
+                ENVTYPE_PROPERTY_NAME,
+                DEFAULT_ENVTYPE).toUpperCase());
+    }
+
+    /**
+     * @see #getEnvType()
+     */
+    public static int getEngineTimeout(ConfigurationParameters params) {
+        return Integer.parseInt(getOrDefault(params,
+                ENGINE_TIMEOUT_PROPERTY_NAME,
+                DEFAULT_ENGINE_TIMEOUT));
+    }
+
+    /**
      * Take an existing map of config-string→string, and ensure every
      * Constants.* key is present (using either the provided value
      * or the Constants.DEFAULT_* fallback).
@@ -275,17 +328,28 @@ public final class Constants {
     public static Map<String, String> mergeWithDefaults(Map<String, String> provided) {
         Map<String, String> merged = new LinkedHashMap<>(provided);
 
-        merged.put(ROOT_RUN_DIR_PROPERTY_NAME,
-                getRootRunDir());
+        if (!provided.containsKey(ROOT_RUN_DIR_PROPERTY_NAME)) {
+            merged.put(ROOT_RUN_DIR_PROPERTY_NAME,
+                    getRootRunDir());
+        }
+        if (!provided.containsKey(ENGINE_TO_USE_PROPERTY_NAME)) {
+            merged.put(ENGINE_TO_USE_PROPERTY_NAME,
+                    getEngineToUse());
+        }
 
-        merged.put(RUN_DIR_PROPERTY_NAME,
-                getRunDir());
-
-        merged.put(ENGINE_TO_USE_PROPERTY_NAME,
-                getEngineToUse());
-
-        merged.put(SAVE_ON_STOP_PROPERTY_NAME,
-                String.valueOf(isSaveOnStop()));
+        if (merged.get(ENVTYPE_PROPERTY_NAME).equals("server")) {
+            if (!provided.containsKey(RUN_SERVER_DIR_PROPERTY_NAME)) {
+                merged.put(RUN_SERVER_DIR_PROPERTY_NAME,
+                        getServerRunDir());
+            }
+        } else if (merged.get(ENVTYPE_PROPERTY_NAME).equals("client")) {
+            if (!provided.containsKey(RUN_CLIENT_DIR_PROPERTY_NAME)) {
+                merged.put(RUN_CLIENT_DIR_PROPERTY_NAME,
+                        getClientRunDir());
+            }
+        } else {
+            throw new IllegalArgumentException("Expected client or server as EngineToUse property, but received " + merged.get(ENVTYPE_PROPERTY_NAME));
+        }
 
         return merged;
     }

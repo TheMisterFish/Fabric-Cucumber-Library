@@ -15,7 +15,7 @@ public class ClientSocketHandler extends AbstractSocketHandler {
     }
 
     public void connect() throws IOException {
-        int port = Integer.parseInt(System.getProperty("cucumber.socket.port"));
+        int port = Integer.parseInt(System.getProperty("cucumberfabric.socket.port"));
         socketChannel = SocketChannel.open();
         socketChannel.configureBlocking(false);
 

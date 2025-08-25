@@ -23,7 +23,10 @@
 		"fabric-api": "*"
 	},
 	"entrypoints": {
-		"main": [
+		"client": [
+			"net.cucumberfabric.RunnerMod"
+		],
+		"server": [
 			"net.cucumberfabric.RunnerMod"
 		]
 	},
