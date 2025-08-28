@@ -1,7 +1,8 @@
-package net.cucumberfabric.mixin.server;
+package net.cucumberfabric.mixin;
 
 import net.minecraft.world.level.storage.LevelStorageSource;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
@@ -10,7 +11,8 @@ import java.nio.file.Paths;
 
 @Mixin(LevelStorageSource.class)
 public class LevelStorageSourceMixin {
-    private static String forcedDir;
+    @Unique
+    private final static String forcedDir;
 
     static {
         forcedDir = System.getProperty("cucumberfabric.server-dir");

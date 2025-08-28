@@ -1,0 +1,50 @@
+package runners;
+
+import io.cucumber.java.AfterAll;
+import io.cucumber.java.AfterStep;
+import io.cucumber.java.BeforeAll;
+import io.cucumber.java.BeforeStep;
+import net.cucumberfabric.FabricTestEngine;
+import org.junit.platform.suite.api.*;
+
+import static io.cucumber.core.options.Constants.GLUE_PROPERTY_NAME;
+import static net.cucumberfabric.options.Constants.ENVTYPE_PROPERTY_NAME;
+
+@Suite
+@SuiteDisplayName("Fabric Client tests")
+@IncludeEngines(FabricTestEngine.FABRIC_ENGINE_ID)
+@ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "steps,runners")
+@ConfigurationParameter(key = ENVTYPE_PROPERTY_NAME, value = "client")
+@SelectPackages("features")
+@IncludeTags("GameTestClient")
+public class ClientRunner {
+    @BeforeAll
+    public static void beforeAll() {
+        System.out.println("beforeAll");
+    }
+
+    @BeforeSuite
+    public static void beforeSuite() {
+        System.out.println("beforeSuite");
+    }
+
+    @BeforeStep
+    public void beforeStep() {
+        System.out.println("beforeStep?");
+    }
+
+    @AfterSuite
+    public static void afterSuite() {
+        System.out.println("afterSuite");
+    }
+
+    @AfterAll
+    public static void afterAll() {
+        System.out.println("afterAll");
+    }
+
+    @AfterStep
+    public void afterStep() {
+        System.out.println("afterStep");
+    }
+}

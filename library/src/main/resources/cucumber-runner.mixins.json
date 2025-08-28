@@ -2,13 +2,15 @@
   "required": true,
   "package": "net.cucumberfabric.mixin",
   "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "LevelStorageSourceMixin",
+    "GameProfileCacheMixin",
+    "StoredUserListMixin"
+  ],
   "server": [
     "server.DedicatedServerSettingsMixin",
     "server.EulaMixin",
-    "server.GameProfileCacheMixin",
-    "server.LevelStorageSourceMixin",
-    "server.ServerLevelMixin",
-    "server.StoredUserListMixin"
+    "server.ServerLevelMixin"
   ],
   "client": [
     "client.MinecraftMixin"
@@ -16,5 +18,5 @@
   "injectors": {
     "defaultRequire": 1,
     "maxShiftBy": 2
-	}
+  }
 }

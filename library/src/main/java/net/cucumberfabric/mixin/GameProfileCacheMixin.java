@@ -1,16 +1,18 @@
-package net.cucumberfabric.mixin.server;
+package net.cucumberfabric.mixin;
 
-import net.minecraft.server.players.StoredUserList;
+import net.minecraft.server.players.GameProfileCache;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 import java.io.File;
 import java.nio.file.Paths;
 
-@Mixin(StoredUserList.class)
-public class StoredUserListMixin {
-    private static String forcedDir;
+@Mixin(GameProfileCache.class)
+public class GameProfileCacheMixin {
+    @Unique
+    private final static String forcedDir;
 
     static {
         forcedDir = System.getProperty("cucumberfabric.server-dir");
@@ -19,7 +21,7 @@ public class StoredUserListMixin {
     @ModifyVariable(
             method = "<init>",
             at = @At("HEAD"),
-            index = 1,
+            index = 2,
             argsOnly = true
     )
     private static File redirectPath(File value) {

@@ -5,6 +5,7 @@ import net.cucumberfabric.dto.ExecutionReplyDTO;
 import net.cucumberfabric.dto.MessageWrapperDTO;
 import net.cucumberfabric.dto.TestRequestPayloadDTO;
 import net.cucumberfabric.dto.types.MessageType;
+import net.cucumberfabric.exception.FabricEngineException;
 import net.cucumberfabric.exception.FabricEngineTimeOutException;
 import net.cucumberfabric.options.Constants;
 import net.cucumberfabric.socket.ServerSocketHandler;
@@ -24,10 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -85,7 +83,6 @@ public class FabricTestEngine implements TestEngine {
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
             stringParams = Constants.mergeWithDefaults(stringParams);
-
             TestRequestPayloadDTO payload = new TestRequestPayloadDTO(uniqueIds, stringParams);
 
             while (!server.isConnected()) {
@@ -149,8 +146,9 @@ public class FabricTestEngine implements TestEngine {
                     }
                 }
             }
-            System.out.println("DONE?");
+
             server.close();
+
         } catch (InterruptedException | IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -166,7 +164,7 @@ public class FabricTestEngine implements TestEngine {
         try {
             EnvType envType = Constants.getEnvType(configurationParameters);
             ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
-            // 1) prepare a sandbox run directory
+
             Path base = Paths.get(Constants.getRootRunDir(configurationParameters));
             Path run = envType == EnvType.SERVER ?
                     base.resolve(Constants.getServerRunDir(configurationParameters)) :
@@ -176,15 +174,14 @@ public class FabricTestEngine implements TestEngine {
             Files.createDirectories(run);
             Files.createDirectories(mods);
 
-            // 2) Fabric dev flags
             System.setProperty("fabric.development", "true");
             System.setProperty("fabric.log.level", "info");
             System.setProperty("fabric.modsFolder", mods.toAbsolutePath().toString());
+            System.setProperty("cucumberfabric.server-dir", run.toAbsolutePath().toString());
 
-            // 3) launch the server (this sets the context loader to the new Knot loader)
             if (envType == EnvType.SERVER) {
-                System.setProperty("cucumberfabric.server-dir", run.toAbsolutePath().toString());
                 System.setProperty("cucumberfabric.eula-location", run.toAbsolutePath().toString());
+
                 createServerProperties(run);
 
                 Knot.launch(new String[]{
@@ -192,9 +189,13 @@ public class FabricTestEngine implements TestEngine {
                 }, envType);
             } else if (envType == EnvType.CLIENT) {
                 new Thread(() -> {
-                    Knot.launch(new String[]{
-                            "gameDir", run.toAbsolutePath().toString()
-                    }, envType);
+                    System.setProperty("minecraft.applet.TargetDirectory", run.toAbsolutePath().toString());
+
+                    List<String> args = new ArrayList<>();
+                    args.add("--gameDir");
+                    args.add(run.toAbsolutePath().toString());
+
+                    Knot.launch(args.toArray(new String[0]), envType);
                 }, "fabric-client-launcher").start();
             } else {
                 throw new RuntimeException("EnvType was not SERVER or CLIENT");
@@ -204,6 +205,13 @@ public class FabricTestEngine implements TestEngine {
 
         } catch (IOException ioe) {
             throw new RuntimeException("Failed to prepare Fabric run directory", ioe);
+        } catch (RuntimeException e) {
+            System.out.println(e.getMessage());
+            if (e.getMessage().equals("Duplicate setLauncher call!")) {
+                throw new FabricEngineException("Duplicate Knot.launch detected. You probably forgot to set the process flag", e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -253,3 +261,4 @@ public class FabricTestEngine implements TestEngine {
         }
     }
 }
+

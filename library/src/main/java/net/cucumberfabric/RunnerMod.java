@@ -14,7 +14,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.MinecraftServer;
 import org.junit.platform.launcher.Launcher;
@@ -25,7 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 import static net.minecraft.server.network.ServerConnectionListener.SERVER_EPOLL_EVENT_GROUP;
 import static net.minecraft.server.network.ServerConnectionListener.SERVER_EVENT_GROUP;
@@ -89,7 +87,6 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
                 try {
                     clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.CLIENT_STOPPING));
                     clientSocketHandler.close();
-
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -115,16 +112,17 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
                     replyCounter = 0;
                 }
 
-                if (!started && currentEnvtype == EnvType.CLIENT) {
-                    if (minecraft.isGameLoadFinished() && minecraft.gui.getGuiTicks() > 80) {
-                        started = true;
-                        startCucumberLauncher(testRequestPayloadDTO);
-                    }
-                }
-                if (!started && currentEnvtype == EnvType.SERVER) {
-                    if (minecraftServer.isReady()) {
-                        started = true;
-                        startCucumberLauncher(testRequestPayloadDTO);
+                if (!started && testRequestPayloadDTO != null) {
+                    if (currentEnvtype == EnvType.CLIENT) {
+                        if (minecraft.isGameLoadFinished() && minecraft.gui.getGuiTicks() > 80) {
+                            started = true;
+                            startCucumberLauncher(testRequestPayloadDTO);
+                        }
+                    } else if (currentEnvtype == EnvType.SERVER) {
+                        if (minecraftServer.isReady()) {
+                            started = true;
+                            startCucumberLauncher(testRequestPayloadDTO);
+                        }
                     }
                 }
 
@@ -146,11 +144,9 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
             requestBuilder.configurationParameters(testRequestPayloadDTO.getStringParams());
         }
 
-        testRequestPayloadDTO.getUniqueIds().forEach(uniqueId -> {
-            requestBuilder.selectors(
-                    selectUniqueId(uniqueId)
-            );
-        });
+        testRequestPayloadDTO.getUniqueIds().forEach(uniqueId -> requestBuilder.selectors(
+                selectUniqueId(uniqueId)
+        ));
 
         LauncherDiscoveryRequest request = requestBuilder.build();
 
@@ -159,16 +155,22 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
         CucumberTestListener cucumberTestListener = new CucumberTestListener(clientSocketHandler);
         launcher.registerTestExecutionListeners(cucumberTestListener);
 
-        launcher.execute(request);
+        new Thread(() -> {
+            launcher.execute(request);
 
-        clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.DONE));
+            try {
+                clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.DONE));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
 
-        if (minecraftServer != null) {
-            minecraftServer.close();
-        }
-        if (minecraft != null) {
-            minecraft.stop();
-        }
+            if (minecraftServer != null) {
+                minecraftServer.close();
+            }
+            if (minecraft != null) {
+                minecraft.stop();
+            }
+        }, "cucumber-test-thread").start();
     }
 
     private void closeNetty() {

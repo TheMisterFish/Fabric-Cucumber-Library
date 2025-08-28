@@ -2,6 +2,7 @@ package net.cucumberfabric.mixin.server;
 
 import net.minecraft.server.Eula;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
@@ -10,6 +11,7 @@ import java.nio.file.Paths;
 
 @Mixin(Eula.class)
 public class EulaMixin {
+    @Unique
     private final static String forcedDir;
 
     static {
