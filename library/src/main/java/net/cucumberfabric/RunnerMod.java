@@ -60,7 +60,7 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
                     clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.SERVER_STOPPED));
                     clientSocketHandler.close();
 
-                    closeNetty();
+//                    closeNetty();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -163,26 +163,6 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-
-            if (minecraftServer != null) {
-                minecraftServer.close();
-            }
-            if (minecraft != null) {
-                minecraft.stop();
-            }
         }, "cucumber-test-thread").start();
     }
-
-    private void closeNetty() {
-        try {
-            NioEventLoopGroup nioGroup = SERVER_EVENT_GROUP.get();
-            nioGroup.shutdownGracefully().sync();
-
-            EpollEventLoopGroup epollGroup = SERVER_EPOLL_EVENT_GROUP.get();
-            epollGroup.shutdownGracefully().sync();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
 }

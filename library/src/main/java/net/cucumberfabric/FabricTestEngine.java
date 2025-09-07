@@ -1,16 +1,17 @@
 package net.cucumberfabric;
 
+import com.ibm.icu.impl.IllegalIcuArgumentException;
 import io.cucumber.junit.platform.engine.CucumberTestEngine;
 import net.cucumberfabric.dto.ExecutionReplyDTO;
 import net.cucumberfabric.dto.MessageWrapperDTO;
 import net.cucumberfabric.dto.TestRequestPayloadDTO;
 import net.cucumberfabric.dto.types.MessageType;
-import net.cucumberfabric.exception.FabricEngineException;
 import net.cucumberfabric.exception.FabricEngineTimeOutException;
 import net.cucumberfabric.options.Constants;
 import net.cucumberfabric.socket.ServerSocketHandler;
 import net.fabricmc.api.EnvType;
-import net.fabricmc.loader.impl.launch.knot.Knot;
+import net.fabricmc.loader.impl.launch.knot.KnotClient;
+import net.fabricmc.loader.impl.launch.knot.KnotServer;
 import net.minecraft.server.dedicated.DedicatedServerProperties;
 import org.junit.platform.engine.*;
 import org.junit.platform.engine.reporting.FileEntry;
@@ -18,9 +19,7 @@ import org.junit.platform.engine.reporting.ReportEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.io.Writer;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,6 +39,7 @@ public class FabricTestEngine implements TestEngine {
 
     private ConfigurationParameters configurationParameters;
     private int timeoutCounter;
+    private final List<Process> processList = new ArrayList<>();
 
     @Override
     public String getId() {
@@ -64,8 +64,11 @@ public class FabricTestEngine implements TestEngine {
         EngineExecutionListener engineExecutionListener = request.getEngineExecutionListener();
 
         try {
-            server.start();
-            startFabricKnot();
+            // start socket server
+            int port = server.start();
+
+            // start knot server or client
+            startFabricKnot(port);
 
             boolean runDone = false;
             boolean gameStopped = false;
@@ -133,21 +136,30 @@ public class FabricTestEngine implements TestEngine {
                         dispatchExecutionReply(executionReplyDTO, engineExecutionListener, testDescriptor);
                     }
                 } else if (newMessage instanceof MessageWrapperDTO messageWrapperDTO) {
-                    if (messageWrapperDTO.getMessageType().equals(MessageType.DONE)) {
-                        runDone = true;
-                    } else if (messageWrapperDTO.getMessageType().equals(MessageType.SERVER_STOPPED)) {
-                        gameStopped = true;
-                    } else if (messageWrapperDTO.getMessageType().equals(MessageType.CLIENT_STOPPING)) {
-                        gameStopped = true;
-                    } else if (messageWrapperDTO.getMessageType().equals(MessageType.WORKING)) {
-                        LOGGER.info("RunnerMod still working");
-                    } else if (messageWrapperDTO.getMessageType().equals(MessageType.ERROR)) {
-                        throw new RuntimeException("Exception received from Mod", messageWrapperDTO.getMessage());
+                    switch (messageWrapperDTO.getMessageType()) {
+                        case MessageType.DONE -> {
+                            runDone = true;
+                            processList.forEach(process -> {
+                                OutputStream os = process.getOutputStream();
+                                PrintWriter writer = new PrintWriter(os, true);
+                                writer.println("stop");
+
+                            });
+                        }
+                        case MessageType.SERVER_STOPPED -> gameStopped = true;
+                        case MessageType.CLIENT_STOPPING -> gameStopped = true;
+                        case MessageType.WORKING -> LOGGER.info("RunnerMod still working");
+                        case MessageType.ERROR ->
+                                throw new RuntimeException("Exception received from Mod", messageWrapperDTO.getMessage());
                     }
                 }
             }
 
             server.close();
+            processList.forEach(process -> {
+                process.children().forEach(ProcessHandle::destroy);
+                process.destroy();
+            });
 
         } catch (InterruptedException | IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
@@ -160,10 +172,10 @@ public class FabricTestEngine implements TestEngine {
         return timeoutCounter > (Constants.getEngineTimeout(configurationParameters) * 1000);
     }
 
-    private void startFabricKnot() {
+    private void startFabricKnot(int port) {
+
         try {
             EnvType envType = Constants.getEnvType(configurationParameters);
-            ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
 
             Path base = Paths.get(Constants.getRootRunDir(configurationParameters));
             Path run = envType == EnvType.SERVER ?
@@ -174,45 +186,100 @@ public class FabricTestEngine implements TestEngine {
             Files.createDirectories(run);
             Files.createDirectories(mods);
 
-            System.setProperty("fabric.development", "true");
-            System.setProperty("fabric.log.level", "info");
-            System.setProperty("fabric.modsFolder", mods.toAbsolutePath().toString());
-            System.setProperty("cucumberfabric.server-dir", run.toAbsolutePath().toString());
+            String classpath = System.getProperty("java.class.path");
 
+            ProcessBuilder pb;
             if (envType == EnvType.SERVER) {
-                System.setProperty("cucumberfabric.eula-location", run.toAbsolutePath().toString());
-
                 createServerProperties(run);
-
-                Knot.launch(new String[]{
-                        "--nogui",
-                }, envType);
+                pb = new ProcessBuilder(
+                        "java",
+                        "-cp", classpath,
+                        "-Dfabric.development=true",
+                        "-Dfabric.log.level=info",
+                        "-Dfabric.modsFolder=" + mods.toAbsolutePath(),
+                        "-Dcucumberfabric.server-dir=" + run.toAbsolutePath(),
+                        "-Dcucumberfabric.eula-location=" + run.toAbsolutePath(),
+                        "-Dcucumberfabric.socket.port=" + port,
+                        KnotServer.class.getName(),
+                        "--nogui"
+                );
             } else if (envType == EnvType.CLIENT) {
-                new Thread(() -> {
-                    System.setProperty("minecraft.applet.TargetDirectory", run.toAbsolutePath().toString());
-
-                    List<String> args = new ArrayList<>();
-                    args.add("--gameDir");
-                    args.add(run.toAbsolutePath().toString());
-
-                    Knot.launch(args.toArray(new String[0]), envType);
-                }, "fabric-client-launcher").start();
+                pb = new ProcessBuilder(
+                        "java",
+                        "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005",
+                        "-cp", classpath,
+                        "-Dfabric.development=true",
+                        "-Dfabric.log.level=info",
+                        "-Dfabric.modsFolder=" + mods.toAbsolutePath(),
+                        "-Dcucumberfabric.socket.port=" + port,
+                        KnotClient.class.getName(),
+                        "--nogui",
+                        "--gameDir", run.toAbsolutePath().toString()
+                );
             } else {
-                throw new RuntimeException("EnvType was not SERVER or CLIENT");
+                throw new IllegalIcuArgumentException(String.format("Expected envtype server or client but got %s", envType));
             }
 
-            Thread.currentThread().setContextClassLoader(currentLoader);
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+            pb.directory(run.toFile());
+            processList.add(pb.start());
 
-        } catch (IOException ioe) {
-            throw new RuntimeException("Failed to prepare Fabric run directory", ioe);
-        } catch (RuntimeException e) {
-            System.out.println(e.getMessage());
-            if (e.getMessage().equals("Duplicate setLauncher call!")) {
-                throw new FabricEngineException("Duplicate Knot.launch detected. You probably forgot to set the process flag", e);
-            } else {
-                throw e;
-            }
+        } catch (Exception e) {
+            System.out.println(e);
         }
+//        try {
+//            EnvType envType = Constants.getEnvType(configurationParameters);
+//            ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
+//
+//            Path base = Paths.get(Constants.getRootRunDir(configurationParameters));
+//            Path run = envType == EnvType.SERVER ?
+//                    base.resolve(Constants.getServerRunDir(configurationParameters)) :
+//                    base.resolve(Constants.getClientRunDir(configurationParameters));
+//
+//            Path mods = base.resolve("mods");
+//            Files.createDirectories(run);
+//            Files.createDirectories(mods);
+//
+//            System.setProperty("fabric.development", "true");
+//            System.setProperty("fabric.log.level", "info");
+//            System.setProperty("fabric.modsFolder", mods.toAbsolutePath().toString());
+//            System.setProperty("cucumberfabric.server-dir", run.toAbsolutePath().toString());
+//
+//            if (envType == EnvType.SERVER) {
+//                System.setProperty("cucumberfabric.eula-location", run.toAbsolutePath().toString());
+//
+//                createServerProperties(run);
+//
+//                Knot.launch(new String[]{
+//                        "--nogui",
+//                }, envType);
+//            } else if (envType == EnvType.CLIENT) {
+//                new Thread(() -> {
+//                    System.setProperty("minecraft.applet.TargetDirectory", run.toAbsolutePath().toString());
+//
+//                    List<String> args = new ArrayList<>();
+//                    args.add("--gameDir");
+//                    args.add(run.toAbsolutePath().toString());
+//
+//                    Knot.launch(args.toArray(new String[0]), envType);
+//                }, "fabric-client-launcher").start();
+//            } else {
+//                throw new RuntimeException("EnvType was not SERVER or CLIENT");
+//            }
+//
+//            Thread.currentThread().setContextClassLoader(currentLoader);
+//
+//        } catch (IOException ioe) {
+//            throw new RuntimeException("Failed to prepare Fabric run directory", ioe);
+//        } catch (RuntimeException e) {
+//            System.out.println(e.getMessage());
+//            if (e.getMessage().equals("Duplicate setLauncher call!")) {
+//                throw new FabricEngineException("Duplicate Knot.launch detected. You probably forgot to set the process flag", e);
+//            } else {
+//                throw e;
+//            }
+//        }
     }
 
     private static void createServerProperties(Path runDir) {

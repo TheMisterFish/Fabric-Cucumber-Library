@@ -4,7 +4,9 @@ import net.minecraft.server.Eula;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,5 +31,10 @@ public class EulaMixin {
             return Paths.get(forcedDir, "eula.txt");
         }
         return original;
+    }
+
+    @Inject(method = "hasAgreedToEULA", at = @At(value = "RETURN"), cancellable = true)
+    public void setTrue(CallbackInfoReturnable<Boolean> cir) {
+        cir.setReturnValue(true);
     }
 }

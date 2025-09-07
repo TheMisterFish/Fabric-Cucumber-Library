@@ -4,16 +4,19 @@ import io.cucumber.java.AfterAll;
 import io.cucumber.java.AfterStep;
 import io.cucumber.java.BeforeAll;
 import io.cucumber.java.BeforeStep;
-import org.junit.platform.suite.api.AfterSuite;
-import org.junit.platform.suite.api.BeforeSuite;
+import net.cucumberfabric.FabricTestEngine;
+import org.junit.platform.suite.api.*;
 
-//@Suite
-//@SuiteDisplayName("Fabric Server tests")
-//@IncludeEngines(FabricTestEngine.FABRIC_ENGINE_ID)
-//@ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "steps,runners")
-//@ConfigurationParameter(key = ENVTYPE_PROPERTY_NAME, value = "server")
-//@SelectPackages("features")
-//@IncludeTags("GameTestServer")
+import static io.cucumber.core.options.Constants.GLUE_PROPERTY_NAME;
+import static net.cucumberfabric.options.Constants.ENVTYPE_PROPERTY_NAME;
+
+@Suite
+@SuiteDisplayName("Fabric Server tests")
+@IncludeEngines(FabricTestEngine.FABRIC_ENGINE_ID)
+@ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "steps,runners")
+@ConfigurationParameter(key = ENVTYPE_PROPERTY_NAME, value = "server")
+@SelectPackages("features")
+@IncludeTags("GameTestServer")
 public class ServerRunner {
 
     @BeforeAll

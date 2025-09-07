@@ -15,13 +15,12 @@ public class ServerSocketHandler extends AbstractSocketHandler {
         super(ServerSocketHandler.class);
     }
 
-    public void start() throws IOException {
+    public int start() throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.configureBlocking(false);
         serverSocketChannel.socket().bind(new InetSocketAddress(0));
 
-        int port = serverSocketChannel.socket().getLocalPort();
-        System.setProperty("cucumberfabric.socket.port", String.valueOf(port));
+        return serverSocketChannel.socket().getLocalPort();
     }
 
     @Override
