@@ -1,16 +1,15 @@
 package net.cucumberfabric;
 
+import com.ibm.icu.impl.IllegalIcuArgumentException;
 import io.cucumber.junit.platform.engine.CucumberTestEngine;
 import net.cucumberfabric.dto.ExecutionReplyDTO;
 import net.cucumberfabric.dto.MessageWrapperDTO;
 import net.cucumberfabric.dto.TestRequestPayloadDTO;
 import net.cucumberfabric.dto.types.MessageType;
-import net.cucumberfabric.exception.FabricEngineException;
 import net.cucumberfabric.exception.FabricEngineTimeOutException;
 import net.cucumberfabric.options.Constants;
 import net.cucumberfabric.socket.ServerSocketHandler;
 import net.fabricmc.api.EnvType;
-import net.fabricmc.loader.impl.launch.knot.Knot;
 import net.minecraft.server.dedicated.DedicatedServerProperties;
 import org.junit.platform.engine.*;
 import org.junit.platform.engine.reporting.FileEntry;
@@ -18,9 +17,13 @@ import org.junit.platform.engine.reporting.ReportEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.io.Writer;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,6 +43,9 @@ public class FabricTestEngine implements TestEngine {
 
     private ConfigurationParameters configurationParameters;
     private int timeoutCounter;
+    private URLClassLoader childClassloader;
+    private ExecutionRequest request;
+    private EngineExecutionListener engineExecutionListener;
 
     @Override
     public String getId() {
@@ -56,12 +62,13 @@ public class FabricTestEngine implements TestEngine {
     }
 
     @Override
-    public void execute(ExecutionRequest request) {
-        if (request.getRootTestDescriptor().getChildren().isEmpty())
+    public void execute(ExecutionRequest executionRequest) {
+        if (executionRequest.getRootTestDescriptor().getChildren().isEmpty())
             return;
 
         String engineToUse = Constants.getEngineToUse(configurationParameters);
-        EngineExecutionListener engineExecutionListener = request.getEngineExecutionListener();
+        request = executionRequest;
+        engineExecutionListener = executionRequest.getEngineExecutionListener();
 
         try {
             server.start();
@@ -87,11 +94,7 @@ public class FabricTestEngine implements TestEngine {
 
             while (!server.isConnected()) {
                 server.poll();
-                if (timeoutSleep(100)) {
-                    engineExecutionListener.executionFinished(
-                            request.getRootTestDescriptor(),
-                            TestExecutionResult.failed(new FabricEngineTimeOutException("The ModRunner did not connect in time"))
-                    );
+                if (timeoutSleep(100, "The ModRunner did not connect in time")) {
                     return;
                 }
             }
@@ -104,11 +107,7 @@ public class FabricTestEngine implements TestEngine {
             while (!runDone || !gameStopped) {
                 while (!server.hasMessages()) {
                     server.poll();
-                    if (timeoutSleep(10)) {
-                        engineExecutionListener.executionFinished(
-                                request.getRootTestDescriptor(),
-                                TestExecutionResult.failed(new FabricEngineTimeOutException("FabricEngine did not receive a message in time"))
-                        );
+                    if (timeoutSleep(10, "FabricEngine did not receive a message in time")) {
                         return;
                     }
                 }
@@ -130,7 +129,7 @@ public class FabricTestEngine implements TestEngine {
                     if (testDescriptorOptional.isPresent()) {
                         TestDescriptor testDescriptor = testDescriptorOptional.get();
 
-                        dispatchExecutionReply(executionReplyDTO, engineExecutionListener, testDescriptor);
+                        dispatchExecutionReply(executionReplyDTO, testDescriptor);
                     }
                 } else if (newMessage instanceof MessageWrapperDTO messageWrapperDTO) {
                     if (messageWrapperDTO.getMessageType().equals(MessageType.DONE)) {
@@ -148,16 +147,24 @@ public class FabricTestEngine implements TestEngine {
             }
 
             server.close();
+            childClassloader = null;
 
         } catch (InterruptedException | IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private boolean timeoutSleep(int millis) throws InterruptedException {
+    private boolean timeoutSleep(int millis, String reason) throws InterruptedException {
         TimeUnit.MILLISECONDS.sleep(millis);
         timeoutCounter = timeoutCounter + millis;
-        return timeoutCounter > (Constants.getEngineTimeout(configurationParameters) * 1000);
+        if (timeoutCounter > (Constants.getEngineTimeout(configurationParameters) * 1000)) {
+            engineExecutionListener.executionFinished(
+                    request.getRootTestDescriptor(),
+                    TestExecutionResult.failed(new FabricEngineTimeOutException(reason))
+            );
+            return true;
+        }
+        return false;
     }
 
     private void startFabricKnot() {
@@ -183,35 +190,58 @@ public class FabricTestEngine implements TestEngine {
                 System.setProperty("cucumberfabric.eula-location", run.toAbsolutePath().toString());
 
                 createServerProperties(run);
+                String[] args = new String[]{"--nogui"};
 
-                Knot.launch(new String[]{
-                        "--nogui",
-                }, envType);
+                launchUnderChildClassloader(args, envType);
+
             } else if (envType == EnvType.CLIENT) {
                 new Thread(() -> {
                     System.setProperty("minecraft.applet.TargetDirectory", run.toAbsolutePath().toString());
+                    String[] args = new String[]{"--gameDir", run.toAbsolutePath().toString()};
 
-                    List<String> args = new ArrayList<>();
-                    args.add("--gameDir");
-                    args.add(run.toAbsolutePath().toString());
-
-                    Knot.launch(args.toArray(new String[0]), envType);
+                    launchUnderChildClassloader(args, envType);
                 }, "fabric-client-launcher").start();
             } else {
-                throw new RuntimeException("EnvType was not SERVER or CLIENT");
+                throw new IllegalArgumentException("EnvType was not SERVER or CLIENT");
             }
 
             Thread.currentThread().setContextClassLoader(currentLoader);
 
         } catch (IOException ioe) {
             throw new RuntimeException("Failed to prepare Fabric run directory", ioe);
-        } catch (RuntimeException e) {
-            System.out.println(e.getMessage());
-            if (e.getMessage().equals("Duplicate setLauncher call!")) {
-                throw new FabricEngineException("Duplicate Knot.launch detected. You probably forgot to set the process flag", e);
-            } else {
-                throw e;
+        }
+    }
+
+    private void launchUnderChildClassloader(String[] args, EnvType envType) {
+        try {
+            String javaClassPath = System.getProperty("java.class.path");
+            String[] parts = javaClassPath.split(File.pathSeparator);
+
+            List<URL> urlList = new ArrayList<>(parts.length);
+            for (String part : parts) {
+                File file = new File(part);
+                if (file.exists()) {
+                    urlList.add(file.toURI().toURL());
+                }
             }
+            URL[] urls = urlList.toArray(new URL[0]);
+            ClassLoader platform = ClassLoader.getPlatformClassLoader();
+            childClassloader = new URLClassLoader(urls, platform);
+
+            Thread.currentThread().setContextClassLoader(childClassloader);
+
+            Class<?> knotClass;
+            if (envType == EnvType.SERVER) {
+                knotClass = childClassloader.loadClass("net.fabricmc.loader.impl.launch.knot.KnotServer");
+            } else if (envType == EnvType.CLIENT) {
+                knotClass = childClassloader.loadClass("net.fabricmc.loader.impl.launch.knot.KnotClient");
+            } else {
+                throw new IllegalIcuArgumentException("Expected CLIENT or SERVER envType");
+            }
+            Method launch = knotClass.getMethod("main", String[].class);
+            launch.invoke(null, new Object[]{args});
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to launch Fabric under isolated loader", ex);
         }
     }
 
@@ -229,7 +259,7 @@ public class FabricTestEngine implements TestEngine {
         }
     }
 
-    private void dispatchExecutionReply(ExecutionReplyDTO executionReplyDTO, EngineExecutionListener engineExecutionListener, TestDescriptor testDescriptor) {
+    private void dispatchExecutionReply(ExecutionReplyDTO executionReplyDTO, TestDescriptor testDescriptor) {
         switch (executionReplyDTO.getExecutionType()) {
             case DYNAMIC_TEST_REGISTERED -> engineExecutionListener.dynamicTestRegistered(testDescriptor);
             case EXECUTION_SKIPPED ->

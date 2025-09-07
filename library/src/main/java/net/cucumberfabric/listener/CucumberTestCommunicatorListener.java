@@ -13,11 +13,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class CucumberTestListener implements TestExecutionListener {
-    private final Logger LOGGER = LoggerFactory.getLogger(CucumberTestListener.class);
+public class CucumberTestCommunicatorListener implements TestExecutionListener {
+    private final Logger LOGGER = LoggerFactory.getLogger(CucumberTestCommunicatorListener.class);
     private final ClientSocketHandler clientSocketHandler;
 
-    public CucumberTestListener(ClientSocketHandler clientSocketHandler) {
+    public CucumberTestCommunicatorListener(ClientSocketHandler clientSocketHandler) {
         this.clientSocketHandler = clientSocketHandler;
     }
 

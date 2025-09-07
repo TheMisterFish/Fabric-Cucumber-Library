@@ -19,16 +19,11 @@ public class ClientSteps {
         GuiHelper.listButtons().forEach(button -> {
             System.out.println(button);
         });
-        GuiHelper.pressButton("create");
-        System.out.println("create pressed");
-        GuiHelper.listButtons().forEach(button -> {
-            System.out.println(button);
-        });
     }
 
     @Then("client has started")
     public void clientHasStarted() throws InterruptedException {
-        TimeUnit.SECONDS.sleep(10);
+        TimeUnit.SECONDS.sleep(2);
         System.out.println("Client Then step printline");
     }
 }

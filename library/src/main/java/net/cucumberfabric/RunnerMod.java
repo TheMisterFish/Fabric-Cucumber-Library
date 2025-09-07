@@ -5,7 +5,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import net.cucumberfabric.dto.MessageWrapperDTO;
 import net.cucumberfabric.dto.TestRequestPayloadDTO;
 import net.cucumberfabric.dto.types.MessageType;
-import net.cucumberfabric.listener.CucumberTestListener;
+import net.cucumberfabric.hooks.GlobalAfterStepHook;
+import net.cucumberfabric.listener.CucumberTestCommunicatorListener;
 import net.cucumberfabric.socket.ClientSocketHandler;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.DedicatedServerModInitializer;
@@ -55,15 +56,13 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
         });
 
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
-            if (clientSocketHandler.isConnected()) {
-                try {
-                    clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.SERVER_STOPPED));
-                    clientSocketHandler.close();
+            try {
+                clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.SERVER_STOPPED));
+                clientSocketHandler.close();
 
-                    closeNetty();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                closeNetty();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         });
     }
@@ -83,13 +82,11 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(minecraft -> {
-            if (clientSocketHandler.isConnected()) {
-                try {
-                    clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.CLIENT_STOPPING));
-                    clientSocketHandler.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+            try {
+                clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.CLIENT_STOPPING));
+                clientSocketHandler.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         });
     }
@@ -140,9 +137,7 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
     private void startCucumberLauncher(TestRequestPayloadDTO testRequestPayloadDTO) throws IOException, InterruptedException {
         LauncherDiscoveryRequestBuilder requestBuilder = LauncherDiscoveryRequestBuilder.request();
 
-        if (!testRequestPayloadDTO.getStringParams().isEmpty()) {
-            requestBuilder.configurationParameters(testRequestPayloadDTO.getStringParams());
-        }
+        requestBuilder.configurationParameters(testRequestPayloadDTO.getStringParams());
 
         testRequestPayloadDTO.getUniqueIds().forEach(uniqueId -> requestBuilder.selectors(
                 selectUniqueId(uniqueId)
@@ -152,23 +147,23 @@ public class RunnerMod implements DedicatedServerModInitializer, ClientModInitia
 
         Launcher launcher = LauncherFactory.create();
 
-        CucumberTestListener cucumberTestListener = new CucumberTestListener(clientSocketHandler);
-        launcher.registerTestExecutionListeners(cucumberTestListener);
+        launcher.registerTestExecutionListeners(new CucumberTestCommunicatorListener(clientSocketHandler));
 
         new Thread(() -> {
-            launcher.execute(request);
-
             try {
+                launcher.execute(request);
                 clientSocketHandler.sendObject(new MessageWrapperDTO(MessageType.DONE));
             } catch (IOException e) {
                 throw new RuntimeException(e);
-            }
-
-            if (minecraftServer != null) {
-                minecraftServer.close();
-            }
-            if (minecraft != null) {
-                minecraft.stop();
+            } finally {
+                if (minecraftServer != null) {
+                    minecraftServer.execute(() -> {
+                        minecraftServer.halt(false);
+                    });
+                }
+                if (minecraft != null) {
+                    minecraft.stop();
+                }
             }
         }, "cucumber-test-thread").start();
     }
